@@ -1,4 +1,4 @@
-# DV_EXCHGE Integration Tool
+# Dataverse <-> Exchange Integration Tool
 
 A PowerShell-based integration tool that synchronizes email between a Dataverse / Dynamics CRM environment and Exchange Online.
 
@@ -52,13 +52,10 @@ A PowerShell-based integration tool that synchronizes email between a Dataverse 
 ```text
 DV_EXCHGE/
 ├── config.json
-├── gitignore
 ├── in_mailbox.json
 ├── LoadPackages.psm1
-├── logs/
 ├── out_mailbox.json
 ├── README.md
 ├── run.ps1
-├── test_mod.psm1
-└── utils.psm1
+└── test_mod.psm1
 ```
