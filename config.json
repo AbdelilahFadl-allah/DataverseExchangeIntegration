@@ -1,0 +1,17 @@
+{
+  "AzureAD": {
+    "TenantId": "",
+    "ClientId": "",
+    "ClientSecret": ""
+  },
+  "Dataverse": {
+    "AuthType": "AD|IFD|ClientSecret",
+    "Url": "org_url",
+    "ClientId": "",
+    "ClientSecret": ""
+  },
+  "Logging": {
+    "LogFile": "log.txt",
+    "LogLevel": "INFO"
+  }
+}
