@@ -766,8 +766,12 @@ Function Get-DataverseOutgoingEmail {
                     <filter type="and">
                         <condition attribute="statuscode" operator="eq" value="6" />
                         <condition attribute="directioncode" operator="eq" value="true" />
-                        <condition attribute="modifiedon" operator="ge" value="$($mb.start_processing)" />
+                        <condition attribute="createdon" operator="ge" value="$($mb.start_processing)" />
                         <condition attribute="sendermailboxid" operator="eq" value="$($mb.mailboxid)" />
+                        <filter type="or">
+                            <condition attribute="stf_emailsent" operator="eq" value="false" />
+                            <condition attribute="stf_emailsent" operator="null"/>
+                        </filter>
                     </filter>
                     <link-entity name="activityparty" from="activityid" to="activityid" alias="cc" link-type="outer">
                         <filter>
@@ -808,6 +812,7 @@ Function Get-DataverseOutgoingEmail {
         if ($null -ne $emails -and $null -ne $emails.Entities -and 0 -lt $emails.Entities.Count) {
             $messageids = $emails.Entities | Sort-Object -Property Id -Unique | Select-Object -ExpandProperty Id
             $outmsgs = @()
+            Write-Log -Message "Processing $($messageids.Count) outgoing emails for mailbox: $($mb.emailaddress)" -Level INFO
             foreach ($id in $messageids) {
                 $e = $emails.Entities | Where-Object { $_.Id -eq $id }
                 $fe = $e | Select-Object -First 1
@@ -860,7 +865,7 @@ Function Get-DataverseOutgoingEmail {
                 }
                 $outmsgs += (New-Object psobject -Property $props)
             }
-            Write-Log -Message "Retrieved $($outmsgs.Count) outgoing emails for mailbox: $($mb.emailaddress)" -Level INFO
+            Write-Log -Message "Processed $($outmsgs.Count) outgoing emails for mailbox: $($mb.emailaddress)" -Level INFO
             Write-Output $outmsgs
         }
         else {
@@ -912,7 +917,7 @@ Function Send-Email {
             Write-Log -Message "Attempting to send email for mailbox: $($mailbox.emailaddress)" -Level INFO
             
             Connect-MgGraph -AccessToken ($token.access_token | ConvertTo-SecureString -AsPlainText -Force) -NoWelcome
-            Send-MgUserMail -ErrorAction Stop -UserId ($mailbox.emailaddress) -BodyParameter @{
+            $sent = Send-MgUserMail -PassThru -UserId ($mailbox.emailaddress) -BodyParameter @{
                 Message = @{
                     Subject = $message.subject
                     Body = @{ ContentType = "HTML"; Content = $message.body }
@@ -923,20 +928,30 @@ Function Send-Email {
                 }
             }
             #If all went wel, update the email in dataverse to sent
-            $update_email = new-object Entity("email")
-            $update_email["activityid"] = $message.activityid
-            $update_email["statuscode"] = [OptionSetValue](New-Object OptionSetValue(3))
-            $update_email["statecode"] = [OptionSetValue](New-Object OptionSetValue(1))
-            $service.Update($update_email)
+            if($null -ne $sent) {
 
-        } catch{
+                Write-Log -Message "Email sent successfully for mailbox: $($mailbox.emailaddress)" -Level INFO
+                $update_email = new-object Entity("email")
+                $update_email["activityid"] = $message.activityid
+                $update_email["statuscode"] = [OptionSetValue](New-Object OptionSetValue(2))
+                $update_email["statecode"] = [OptionSetValue](New-Object OptionSetValue(1))
+                $update_email["stf_emailsent"] = $true
+                $update_email["senton"] = [DateTime]::UtcNow
+                $service.Update($update_email)
+            }
+            else {
+                Write-Log -Message "Failed to send email [$($message.subject)] for mailbox: $($mailbox.emailaddress)" -Level WARNING
+                $update_email = new-object Entity("email")
+                $update_email["activityid"] = $message.activityid
+                $update_email["statuscode"] = [OptionSetValue](New-Object OptionSetValue(5))
+                $update_email["statecode"] = [OptionSetValue](New-Object OptionSetValue(1))
+                $update_email["stf_emailsent"] = $false
+                $service.Update($update_email)
+            }
+
+        } catch {
             Write-Log -Message "Failed to send email for mailbox: $($mailbox.emailaddress)" -Level ERROR
-            write-Log -Message $_.Exception.Response.StatusDescription -Level ERROR
-            $update_email = new-object Entity("email")
-            $update_email["activityid"] = $message.activityid
-            $update_email["statuscode"] = [OptionSetValue](New-Object OptionSetValue(5))
-            $update_email["statecode"] = [OptionSetValue](New-Object OptionSetValue(1))
-            $service.Update($update_email)
+            write-Log -Message $_.Exception.Message -Level ERROR
         }
     }
 }
