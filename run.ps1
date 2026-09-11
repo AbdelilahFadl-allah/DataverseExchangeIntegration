@@ -67,16 +67,7 @@ Function Process-Mailbox {
             }
         }
     }
-
-    ######## Process Outgoing Emails ###########
-        
-    #TODO: Outgoing email processing is not currently working coreectly, there is a problem with attachments.
-    <#
-        $emails = Get-DataverseOutgoingEmail -service $dvservice
-        foreach($email in $emails) {
-            Send-Email -token $token -message $email
-        }
-        #>
+    
     Write-Host "Completed processing for: $($mb.emailaddress)"
 }
 
@@ -124,68 +115,3 @@ foreach($mb in $outmailboxes) {
 
 
 <#TODO: Parallel Processing#>
-<#
-# Start parallel jobs for each mailbox
-$jobs = @()
-$maxParallel = 5  # Adjust this value based on your needs
-
-Write-Host "Starting parallel processing for $($dvmailboxes.Count) mailboxes..."
-
-foreach ($mb in $dvmailboxes) {
-    # Wait if we've hit the max parallel limit
-    while ((Get-Job -State Running).Count -ge $maxParallel) {
-        Start-Sleep -Seconds 2
-    }
-    
-    # Start a new job for this mailbox
-    $job = Start-Job -ScriptBlock {
-        param($mb, $token, $dvservice)
-        
-        # Re-import modules in the job scope
-        Import-Module .\test_mod.psm1
-        
-        # Process the mailbox
-        if ($null -ne $mb.userid) {
-            $messages = Get-ExchangeMessages -upn $mb.emailaddress
-            foreach ($our_message in $messages) {
-                $userpref = Get-UserTrackingPreferences -UserId $mb.userid -service $dvservice
-                if ("all" -eq $userpref) {
-                    $emailid = Add-IncomingEmailInDataverse -service $dvservice -newemail $our_message
-                }
-                elseif ("correlate" -eq $userpref) {
-                    $correlatedDvEmail = Get-CorrelatedEmail -service $dvservice -inreplyto ($our_message.inreplyto.Replace("<", "\u003C").Replace(">", "\u003E")) -newEmail $our_message
-                    if ($null -ne $correlatedDvEmail -and $null -ne $correlatedDvEmail.id) {
-                        $emailid = Add-IncomingEmailInDataverse -service $dvservice -newemail $our_message -correlatedemail $correlatedDvEmail
-                    }
-                }
-            }
-
-            $emails = Get-DataverseOutgoingEmail -service $dvservice
-            foreach ($email in $emails) {
-                Send-Email -token $token -message $email
-            }
-            
-            Write-Output "Completed: $($mb.emailaddress)"
-        }
-    } -ArgumentList $mb, $token, $dvservice
-    
-    $jobs += $job
-    Write-Host "Started job for: $($mb.emailaddress)"
-}
-
-# Wait for all jobs to complete
-Write-Host "Waiting for all jobs to complete..."
-$jobs | Wait-Job | Out-Null
-
-# Get results and clean up
-foreach ($job in $jobs) {
-    $result = Receive-Job -Job $job
-    if ($result) {
-        Write-Host $result
-    }
-    Remove-Job -Job $job
-}
-
-Write-Host "All parallel jobs completed!"
-
-#>
