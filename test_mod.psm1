@@ -748,6 +748,7 @@ Function Get-DataverseOutgoingEmail {
         [psobject] $mb
     )
     begin {
+        $config = Get-PSConfig
         Write-Log -Message "Retrieving outgoing emails from Dataverse for mailbox: $($mb.emailaddress)" -Level INFO
         $fetch = @"
             <fetch top="100">
@@ -769,8 +770,8 @@ Function Get-DataverseOutgoingEmail {
                         <condition attribute="createdon" operator="ge" value="$($mb.start_processing)" />
                         <condition attribute="sendermailboxid" operator="eq" value="$($mb.mailboxid)" />
                         <filter type="or">
-                            <condition attribute="stf_emailsent" operator="eq" value="false" />
-                            <condition attribute="stf_emailsent" operator="null"/>
+                            <condition attribute="$($dataverse.emailsentfieldname)" operator="eq" value="false" />
+                            <condition attribute="$($dataverse.emailsentfieldname)" operator="null"/>
                         </filter>
                     </filter>
                     <link-entity name="activityparty" from="activityid" to="activityid" alias="cc" link-type="outer">
@@ -914,6 +915,12 @@ Function Send-Email {
         
         
         try {
+
+            $config = Get-PSConfig
+            $dataverse = $config.Dataverse
+            if ($null -eq $dataverse -or $null -eq $dataverse.emailsentfieldname) {
+                throw "Dataverse configuration missing in config file: emailsentfieldname"
+            }
             Write-Log -Message "Attempting to send email for mailbox: $($mailbox.emailaddress)" -Level INFO
             
             Connect-MgGraph -AccessToken ($token.access_token | ConvertTo-SecureString -AsPlainText -Force) -NoWelcome
@@ -935,7 +942,7 @@ Function Send-Email {
                 $update_email["activityid"] = $message.activityid
                 $update_email["statuscode"] = [OptionSetValue](New-Object OptionSetValue(2))
                 $update_email["statecode"] = [OptionSetValue](New-Object OptionSetValue(1))
-                $update_email["stf_emailsent"] = $true
+                $update_email["$($dataverse.emailsentfieldname)"] = $true
                 $update_email["senton"] = [DateTime]::UtcNow
                 $service.Update($update_email)
             }
@@ -945,7 +952,7 @@ Function Send-Email {
                 $update_email["activityid"] = $message.activityid
                 $update_email["statuscode"] = [OptionSetValue](New-Object OptionSetValue(5))
                 $update_email["statecode"] = [OptionSetValue](New-Object OptionSetValue(1))
-                $update_email["stf_emailsent"] = $false
+                $update_email["$($dataverse.emailsentfieldname)"] = $false
                 $service.Update($update_email)
             }
 
