@@ -8,7 +8,8 @@
     "AuthType": "AD|IFD|ClientSecret",
     "Url": "org_url",
     "ClientId": "",
-    "ClientSecret": ""
+    "ClientSecret": "",
+    "emailsentfieldname": "new_emailsent"
   },
   "Logging": {
     "LogFile": "log.txt",
