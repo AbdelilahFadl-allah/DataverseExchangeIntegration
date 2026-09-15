@@ -15,6 +15,7 @@ A PowerShell-based integration tool that synchronizes email between a Dataverse 
 - `config.json`
   - Contains connection credentials for both Dataverse and Exchange Online.
   - Use this file to configure the service endpoints, authentication details, and any required client credentials.
+  - For Dataverse configuration the field "emailsentfieldname" should contain a custom yes/no field name inside the Dataverse email table that serves as flag to mark emails as sent.
 
 - `out_mailbox.json`
   - Lists mailboxes that should be used to send email from Dataverse.
